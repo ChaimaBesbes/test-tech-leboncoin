@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "fr.leboncoin.data"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
@@ -38,9 +38,15 @@ android {
     }
 
     dependencies {
+        implementation(project(":domain"))
+
         implementation(libs.retrofit.core)
         implementation(libs.retrofit.kotlin.serialization)
         implementation(libs.okhttp.logging)
+        
+        implementation(libs.androidx.room.runtime)
+        implementation(libs.androidx.room.ktx)
+        ksp(libs.androidx.room.compiler)
 
         implementation(libs.kotlin.serialization.json)
 

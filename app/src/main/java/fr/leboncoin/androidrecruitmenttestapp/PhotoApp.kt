@@ -6,5 +6,5 @@ import fr.leboncoin.androidrecruitmenttestapp.di.AppDependenciesProvider
 
 class PhotoApp : Application(), AppDependenciesProvider {
 
-    override val dependencies: AppDependencies by lazy { AppDependencies() }
+    override val dependencies: AppDependencies by lazy { AppDependencies(this) }
 }
