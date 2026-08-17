@@ -18,19 +18,15 @@ class AlbumRepositoryImpl(
         return if (networkMonitor.isOnline()) {
             val remoteAlbums = albumApiService.getAlbums()
             
-            // Get currently favorited albums so we don't overwrite their status
             val favoriteIds = albumDao.getFavoriteAlbumIds().toSet()
             
-            // Map and save to database
-            val albumEntities = remoteAlbums.map { 
+            val albumEntities = remoteAlbums.map {
                 it.toEntity().copy(isFavorite = favoriteIds.contains(it.id)) 
             }
             albumDao.insertAll(albumEntities)
             
-            // Return domain mapped data
             albumEntities.map { it.toDomain() }
         } else {
-            // Fetch from database
             albumDao.getAllAlbums().map { it.toDomain() }
         }
     }

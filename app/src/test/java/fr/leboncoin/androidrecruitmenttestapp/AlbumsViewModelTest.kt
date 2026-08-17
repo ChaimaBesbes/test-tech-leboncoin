@@ -17,7 +17,7 @@ class AlbumsViewModelTest {
     fun loadsAlbums_emitsNonEmptyList() {
         val fakeService = object : AlbumApiService {
             override suspend fun getAlbums(): List<AlbumDto> = listOf(
-                AlbumDto(id = 1, albumId = 1, title = "t", url = "u", thumbnailUrl = "tu")
+                AlbumDto(id = 1, albumId = 1, title = "title1", url = "url1", thumbnailUrl = "url2")
             )
         }
         val fakeDao = object : AlbumDao {

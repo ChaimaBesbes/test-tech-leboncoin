@@ -78,7 +78,6 @@ class MainActivity : ComponentActivity() {
                         analyticsHelper.trackScreenView("Details - ${route.albumId}")
                         
                         val detailViewModel = ViewModelProvider(this@MainActivity, detailViewModelFactory)[route.albumId.toString(), AlbumDetailViewModel::class.java]
-                        
                         AlbumDetailScreen(
                             albumId = route.albumId,
                             title = route.title,
