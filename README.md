@@ -1,95 +1,64 @@
-# AndroidRecruitmentTestApp
-## ÉNONCÉ
+# Android Recruitment Test App - Architecture & Implementation Documentation
 
-Vous devez améliorer une application native Android affichant la liste des items suivant (titres d'albums) : https://static.leboncoin.fr/img/shared/technical-test.json
+This document outlines the architectural decisions, core logic, and libraries used to refactor and enhance this project.
 
-### Prérequis 
+## Architecture: Clean Architecture
 
-* Le projet est à réaliser sur la plateforme Android (API minimum 24) avec la dernière version stable d'Android Studio
-* Vous devez implémenter un système de persistance des données afin que les données puissent être disponibles offline, même après redémarrage de l'application
-* Vous êtes invité à modifier tout ce qui vous semble pertinent pour améliorer le code existant
-* Il y a des pièges et anomalies à débusquer et à corriger. Arriverez-vous à tous les corriger? 
-* Vous devez intégrer une fonctionnalité de mise en favoris qui persiste en local
-* Vous devez implementer un écran de détail
-* Vous êtes libre d'utiliser le langage et les librairies que vous voulez
-* Votre code doit être versionné sur un dépôt Git librement consultable. Vous êtes libre de créer plusieurs branches pour votre développement, mais nous ne relirons que la branche configurée par défaut, veillez à ce que celle-ci soit à jour
-* Un document récapitulant les choix d'architecture, des patterns et des librairies appliquées
+I reorganized the project into a **Clean Architecture** structure to ensure separation of concerns, high testability, and scalability. The project is split into three main modules:
 
-### Nous observerons particulièrement 
+### 1. `:domain` (Domain Layer)
+- **Role:** The core of the application. It contains the business rules and is completely independent of any Android framework or third-party libraries (Pure Kotlin).
+- **Contents:**
+  - **Models:** `Album`, `Result` (Sealed class for UI state: Loading, Success, Error).
+  - **Repository Interfaces:** `AlbumRepository` defines the contract for data operations without knowing *how* they are implemented.
+  - **Use Cases:** `GetAllAlbumsUseCase`, `GetAlbumUseCase`, `ToggleFavoriteUseCase`. These encapsulate single, specific business actions.
 
-* L'architecture 
-* Votre capacité à débusquer et corriger les bugs
-* L'aspect multi-modulaire
-* Les patterns appliqués
-* Les choix de librairies
-* Les performances de l'application
-* Les tests
-* L'utilisation d'un framework d'injection de dépendance
-* La justification des choix effectués
+### 2. `:data` (Data Layer)
+- **Role:** Responsible for fetching, caching, and mapping data. It implements the interfaces defined in the `:domain` layer.
+- **Contents:**
+  - **Network:** Retrofit API service (`AlbumApiService`) and DTOs (`AlbumDto`).
+  - **Local Database:** Room database setup (`AppDatabase`, `AlbumDao`, `AlbumEntity`).
+  - **Repositories:** `AlbumRepositoryImpl` which acts as the Single Source of Truth (SSOT), deciding whether to fetch data from the network or the local database.
+  - **Utilities:** `NetworkMonitor` to check network availability before making HTTP requests.
 
-### Bonus
-
-* Votre capacité à faire évoluer l'existant et à planifier les évolutions.
-  On souhaite vous faire réfléchir à la planification des évolutions de l'application, et le documenter. 
-
-### Attendu
-
-On attend que vous développiez cette app comme si c'était un projet professionnel. 
-Nous vous recommandons de prendre entre (~ 4 à 6 heures) pour le réaliser.
-Si plus de temps est nécessaire, merci de le demander.
-
-### Nous rejetterons le test si un des éléments suivants n'est pas présent:
-
-* Tests unitaires
-* L'application crash systématiquement
-* La gestion des changements de configuration
-* Aucune justification des choix effectués
-
+### 3. `:app` (Presentation / UI Layer)
+- **Role:** Handles the UI rendering and user interactions using Jetpack Compose and ViewModels.
+- **Contents:**
+  - **ViewModels:** `AlbumsViewModel`, `AlbumDetailViewModel`. They consume Use Cases and expose reactive `StateFlow`s to the UI.
+  - **UI (Compose):** `AlbumsScreen`, `AlbumDetailScreen`, `AlbumItem`. 
+  - **Navigation:** Type-safe Jetpack Navigation Compose defining routes like `AlbumsListRoute` and `AlbumDetailRoute`.
+  - **Dependency Injection:** Manual DI container (`AppDependenciesProvider` and `DataDependencies`) to wire up the application globally.
 
 ---
 
-## ASSIGNMENT
+## Core Logic Implemented
 
-You must improve a native Android application displaying the following items (album titles): https://static.leboncoin.fr/img/shared/technical-test.json
+### 1. Offline-First Approach & Caching
+Instead of waiting for a network request to fail, I implemented a proactive `NetworkMonitor` using Android's `ConnectivityManager`.
+- **Online:** The repository fetches data from the API, preserves any existing favorite statuses, caches the new data into the Room Database, and returns it.
+- **Offline:** The API call is skipped entirely, and the application instantly loads the cached `Album` list from the Room Database.
 
-### Prerequisites
+### 2. UI State Management
+I created a `Result<T>` sealed class (`Loading`, `Success`, `Error`). The ViewModel initializes with `Result.Loading` and updates to `Success` once the UseCase returns data. The UI listens to this `StateFlow` and reactively switches between a loading spinner, an error text, or the main list.
 
-* The project must be developed on the Android platform (minimum API 24) with the latest stable version of Android Studio
-* You must implement a data persistence system so that data can be available offline, even after restarting the application
-* You are invited to modify anything you deem relevant to improve the existing code
-* There are traps and bugs to uncover and fix. Will you be able to fix them all?
-* You must integrate a favorites feature that persists locally
-* You must implement a detail screen
-* You are free to use the language and libraries you want
-* Your code must be versioned on a freely accessible Git repository. You are free to create multiple branches for your development, but we will only review the default configured branch, make sure it is up to date
-* A document summarizing the architecture choices, patterns and libraries applied
+### 3. Pull-to-Refresh & Network Events
+- The list screen supports **Pull-to-Refresh** using Material 3's `PullToRefreshBox`.
+- The ViewModel tracks the network state history. If the user refreshes while offline, an `offlineEvent` triggers a Toast (*"You are offline, fetching local data..."*). If the connection is restored during a refresh, an `onlineEvent` triggers a Toast (*"Connection is back!"*).
 
-### We will particularly observe
+### 4. Favorites System
+Users can favorite albums in the detail screen.
+- **State Preservation:** When toggling a favorite, the `ToggleFavoriteUseCase` updates the Room database directly. When the app fetches fresh data from the API, the repository queries the database for existing favorites and merges that state into the incoming API data before saving it, ensuring user favorites are never overwritten by a network refresh.
 
-* The architecture
-* Your ability to find and fix bugs
-* The multi-modular aspect
-* The patterns applied
-* Library choices
-* Application performance
-* Tests
-* The use of a dependency injection framework
-* Justification of choices made
+---
 
-### Bonus
+## Libraries & Tools
 
-* Your ability to evolve the existing codebase and plan for future developments.
-  We want you to think about planning the application's evolutions, and document it.
-
-### Expected
-
-We expect you to develop this app as if it were a professional project.
-We recommend taking between (~4 to 6 hours) to complete it.
-If more time is needed, please ask.
-
-### We will reject the test if any of the following elements is not present:
-
-* Unit tests
-* The application crashes systematically
-* Configuration changes management
-* No justification for choices made
+- **Jetpack Compose:** The modern, declarative UI toolkit used for all UI components.
+- **Compose Material 3:** Used for structural elements like `Scaffold`, `PullToRefreshBox`, and basic typography.
+- **Spark Design System (`com.adevinta.spark`):** A custom design system used for styled components like `IconButtonGhost`, `IconToggleButtonGhost`, and `ChipTinted`.
+- **Jetpack Navigation Compose:** Configured with the latest **Type-Safe Routing** (using `kotlinx-serialization` to pass data objects like `AlbumDetailRoute` instead of raw strings).
+- **Room:** SQLite object mapping library used for the local offline cache and storing the "favorite" state of albums.
+- **Retrofit & Kotlinx Serialization:** Used for type-safe REST API communication and JSON parsing.
+- **Kotlin Coroutines & Flow:** Used heavily across all layers for asynchronous programming. `StateFlow` for state management, `SharedFlow` for one-time UI events (like Toasts).
+- **Coil:** Used (`AsyncImage`) for asynchronous, cached image loading on both the list and detail screens.
+- **Manual Dependency Injection:** I utilized a structured Manual DI pattern (via Application class and Factory providers) for maximum build speed and complete control over the graph.
